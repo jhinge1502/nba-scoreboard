@@ -14,25 +14,40 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-function parseStatus(statusType) {
-  switch (statusType) {
-    case "STATUS_IN_PROGRESS":
+function parseStatus(state) {
+  switch (state) {
+    case "in":
       return "in_progress";
-    case "STATUS_FINAL":
+    case "post":
       return "final";
-    case "STATUS_SCHEDULED":
+    case "pre":
     default:
       return "scheduled";
   }
 }
 
-function buildGameClock(status) {
-  if (status.type.name !== "STATUS_IN_PROGRESS") return null;
-  const period = status.period;
-  const clock = status.displayClock;
-  const quarterNames = { 1: "Q1", 2: "Q2", 3: "Q3", 4: "Q4" };
-  const qtr = quarterNames[period] || `OT${period - 4 > 1 ? period - 4 : ""}`;
-  return `${qtr} ${clock}`;
+function parseLeaders(competitor) {
+  const leaders = competitor.leaders || [];
+  return leaders
+    .filter((l) => ["points", "rebounds", "assists"].includes(l.name))
+    .map((l) => {
+      const top = l.leaders?.[0];
+      if (!top) return null;
+      const athlete = top.athlete || {};
+      return {
+        category: l.name,
+        name: athlete.displayName || "Unknown",
+        value: top.displayValue || "0",
+        headshot: athlete.headshot || null,
+      };
+    })
+    .filter(Boolean);
+}
+
+function getRecord(competitor) {
+  const records = competitor.records || [];
+  const overall = records.find((r) => r.name === "overall" || r.type === "total");
+  return overall ? overall.summary : null;
 }
 
 function parseGames(data) {
@@ -42,6 +57,9 @@ function parseGames(data) {
     const home = comp.competitors.find((c) => c.homeAway === "home");
     const away = comp.competitors.find((c) => c.homeAway === "away");
     const status = comp.status;
+    const broadcasts = comp.broadcasts || [];
+    const broadcastName =
+      broadcasts[0]?.names?.[0] || comp.broadcast || null;
 
     return {
       id: event.id,
@@ -49,10 +67,18 @@ function parseGames(data) {
       away_team: away.team.abbreviation,
       home_score: parseInt(home.score) || 0,
       away_score: parseInt(away.score) || 0,
-      status: parseStatus(status.type.name),
-      game_clock: buildGameClock(status),
+      status: parseStatus(status.type.state),
+      status_detail: status.type.shortDetail || status.type.detail || null,
+      game_clock: status.type.state === "in"
+        ? (status.type.shortDetail || status.type.detail || null)
+        : null,
       home_logo: home.team.logo,
       away_logo: away.team.logo,
+      home_leaders: parseLeaders(home),
+      away_leaders: parseLeaders(away),
+      home_record: getRecord(home),
+      away_record: getRecord(away),
+      broadcast: broadcastName,
       start_time: event.date,
       updated_at: new Date().toISOString(),
     };
@@ -93,7 +119,6 @@ async function fetchAndUpsert() {
   }
 }
 
-// Run immediately, then every 30 seconds
 console.log("NBA Scoreboard Worker started. Polling every 30s...");
 fetchAndUpsert();
 setInterval(fetchAndUpsert, POLL_INTERVAL);

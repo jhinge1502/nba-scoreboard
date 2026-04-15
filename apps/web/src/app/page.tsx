@@ -35,7 +35,6 @@ export default function Home() {
     }
     init();
 
-    // Subscribe to real-time updates on the games table
     const channel = supabase
       .channel("games-realtime")
       .on(
@@ -78,7 +77,10 @@ export default function Home() {
   if (loading) {
     return (
       <div className="flex flex-1 items-center justify-center">
-        <p className="text-slate-400">Loading scores...</p>
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
+          <p className="text-slate-400 text-sm">Tuning in...</p>
+        </div>
       </div>
     );
   }
@@ -86,10 +88,11 @@ export default function Home() {
   if (games.length === 0) {
     return (
       <div className="flex flex-1 items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold text-white mb-4">NBA Scoreboard</h1>
-          <p className="text-slate-400 text-lg">
-            No games right now. The worker will populate scores once it&apos;s running.
+        <div className="text-center max-w-md">
+          <div className="text-6xl mb-4">📡</div>
+          <h1 className="text-2xl font-bold text-white mb-2">No Signal</h1>
+          <p className="text-slate-400">
+            No games on the air right now. The worker will tune in once games are live.
           </p>
         </div>
       </div>
@@ -97,47 +100,78 @@ export default function Home() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8">
-      <h1 className="mb-6 text-3xl font-bold text-white">
-        {user && favorites.length > 0 ? "My Teams" : "All Games"}
-      </h1>
+    <div className="mx-auto max-w-6xl px-4 py-8">
+      {/* Hero header */}
+      <div className="mb-8 text-center">
+        <h1 className="text-5xl font-black tracking-tight text-white mb-1">
+          {user && favorites.length > 0 ? "MY TEAMS" : "TONIGHT\u2019S GAMES"}
+        </h1>
+        <div className="flex items-center justify-center gap-2">
+          <div className="h-px flex-1 max-w-16 bg-gradient-to-r from-transparent to-amber-500/50" />
+          <p className="text-sm font-medium tracking-widest text-amber-400/70 uppercase">
+            Live Scoreboard
+          </p>
+          <div className="h-px flex-1 max-w-16 bg-gradient-to-l from-transparent to-amber-500/50" />
+        </div>
+      </div>
 
       {liveGames.length > 0 && (
-        <Section title="Live" games={liveGames} />
+        <Section title="ON THE AIR" badge="LIVE" games={liveGames} />
       )}
       {upcomingGames.length > 0 && (
-        <Section title="Upcoming" games={upcomingGames} />
+        <Section title="COMING UP" games={upcomingGames} />
       )}
       {completedGames.length > 0 && (
-        <Section title="Completed" games={completedGames} />
+        <Section title="FINAL SCORES" games={completedGames} />
       )}
 
       {displayGames.length === 0 && (
-        <p className="text-slate-400 text-center mt-12">
-          No games for your favorite teams today. Try adding more teams in{" "}
-          <a href="/favorites" className="text-blue-400 hover:text-blue-300">
-            My Teams
+        <div className="text-center mt-12 py-12 rounded-2xl border border-dashed border-slate-700">
+          <p className="text-slate-500">
+            No games for your favorite teams today.
+          </p>
+          <a
+            href="/favorites"
+            className="mt-2 inline-block text-sm text-amber-400 hover:text-amber-300"
+          >
+            Add more teams &rarr;
           </a>
-          .
-        </p>
+        </div>
       )}
     </div>
   );
 }
 
-function Section({ title, games }: { title: string; games: Game[] }) {
+function Section({
+  title,
+  badge,
+  games,
+}: {
+  title: string;
+  badge?: string;
+  games: Game[];
+}) {
   return (
-    <div className="mb-8">
-      <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-300">
-        {title === "Live" && (
-          <span className="inline-block h-2.5 w-2.5 rounded-full bg-red-500 animate-pulse" />
+    <div className="mb-10">
+      <div className="mb-5 flex items-center gap-3">
+        {badge && (
+          <span className="flex items-center gap-1.5 rounded-full bg-red-500/20 px-3 py-1 text-xs font-bold text-red-400 border border-red-500/30">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+            </span>
+            {badge}
+          </span>
         )}
-        {title}
-        <span className="text-sm font-normal text-slate-500">
-          ({games.length})
+        <h2 className="text-sm font-bold tracking-[0.2em] text-slate-400 uppercase">
+          {title}
+        </h2>
+        <div className="h-px flex-1 bg-slate-800" />
+        <span className="text-xs text-slate-600">
+          {games.length} {games.length === 1 ? "game" : "games"}
         </span>
-      </h2>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      </div>
+      <div className="grid gap-5 sm:grid-cols-2">
         {games.map((game) => (
           <GameCard key={game.id} game={game} />
         ))}
